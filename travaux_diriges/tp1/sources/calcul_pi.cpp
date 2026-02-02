@@ -59,7 +59,49 @@ int main( int nargs, char* argv[] )
 	fileName << "Output" << std::setfill('0') << std::setw(5) << rank << ".txt";
 	std::ofstream output( fileName.str().c_str() );
 
-	// Rajout de code....
+	unsigned long nbSamples = 10000000UL;
+	if (nargs > 1) {
+		nbSamples = std::strtoul(argv[1], nullptr, 10);
+	}
+
+	// Répartition des échantillons
+	unsigned long base = nbSamples / nbp;
+	unsigned long rem = nbSamples % nbp;
+	unsigned long localSamples = base + (static_cast<unsigned long>(rank) < rem ? 1UL : 0UL);
+
+	MPI_Barrier(globComm);
+	double t0 = MPI_Wtime();
+
+	// Calcul local
+	typedef std::chrono::high_resolution_clock myclock;
+	myclock::time_point beginning = myclock::now();
+	myclock::duration d = beginning.time_since_epoch();
+	unsigned seed = static_cast<unsigned>(d.count()) + static_cast<unsigned>(rank * 12345);
+	std::default_random_engine generator(seed);
+	std::uniform_real_distribution<double> distribution(-1.0, 1.0);
+
+	unsigned long localHits = 0;
+	for (unsigned long sample = 0; sample < localSamples; ++sample) {
+		double x = distribution(generator);
+		double y = distribution(generator);
+		if (x * x + y * y <= 1.0) localHits++;
+	}
+
+	unsigned long globalHits = 0;
+	unsigned long globalSamples = 0;
+	MPI_Reduce(&localHits, &globalHits, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, globComm);
+	MPI_Reduce(&localSamples, &globalSamples, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, globComm);
+
+	MPI_Barrier(globComm);
+	double t1 = MPI_Wtime();
+
+	if (rank == 0) {
+		double pi = 4.0 * static_cast<double>(globalHits) / static_cast<double>(globalSamples);
+		output << "nbSamples=" << globalSamples << "\n";
+		output << "pi≈" << std::setprecision(10) << pi << "\n";
+		output << "time=" << (t1 - t0) << " s\n";
+		std::cout << "Temps (MPI) : " << (t1 - t0) << " s, pi≈" << std::setprecision(10) << pi << "\n";
+	}
 
 	output.close();
 	// A la fin du programme, on doit synchroniser une dernière fois tous les processus

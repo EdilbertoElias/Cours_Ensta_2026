@@ -1,5 +1,5 @@
-include Make_linux.inc
-#include Make_msys2.inc
+#include Make_linux.inc
+include Make_msys2.inc
 #include Make_osx.inc
 
 CXXFLAGS = -std=c++14
@@ -11,7 +11,7 @@ CXXFLAGS += -O2 -march=native -Wall
 CXXFLAGS2 = ${CXXFLAGS} -O2 -march=native -Wall 
 endif
 
-ALL= calcul_pi.exe TestProductMatrix.exe test_product_matrice_blas.exe 
+ALL= calcul_pi.exe calcul_pi_omp.exe TestProductMatrix.exe test_product_matrice_blas.exe 
 
 default:	help
 
@@ -25,6 +25,9 @@ clean:
 
 calcul_pi.exe: calcul_pi.cpp
 	$(MPICXX) $(CXXFLAGS) $^ -o $@
+
+calcul_pi_omp.exe: calcul_pi_omp.c
+	$(CC) -fopenmp -O2 $^ -o $@
 
 TestProductMatrix.exe : TestProductMatrix.o Matrix.hpp Matrix.o ProdMatMat.o
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LIB)	
